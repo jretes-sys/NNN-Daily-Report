@@ -91,15 +91,15 @@
   <div class="row">
     <div>
       <label>Total Dialpad Numbers</label>
-      <input type="number" id="nvTotal" value="446">
+      <input type="number" id="nvTotal" placeholder="e.g. 446">
     </div>
     <div>
       <label>Flagged as Spam</label>
-      <input type="number" id="nvFlagged" value="226">
+      <input type="number" id="nvFlagged" placeholder="e.g. 226">
     </div>
   </div>
   <div class="chk">
-    <input type="checkbox" id="nvDiscord" checked>
+    <input type="checkbox" id="nvDiscord">
     <label style="margin:0;" for="nvDiscord">Spam numbers posted to Discord</label>
   </div>
 </div>
@@ -109,11 +109,11 @@
   <div class="row">
     <div>
       <label>Total Leads</label>
-      <input type="number" id="arlTotal" value="3">
+      <input type="number" id="arlTotal" placeholder="e.g. 3">
     </div>
     <div>
       <label>Campaigns (comma separated)</label>
-      <input type="text" id="arlCampaigns" placeholder="ADVB, NNN, FTB" value="ADVB, NNN">
+      <input type="text" id="arlCampaigns" placeholder="ADVB, NNN, FTB">
     </div>
   </div>
 </div>
@@ -123,11 +123,11 @@
   <div class="row">
     <div>
       <label>Total Errors</label>
-      <input type="number" id="zeTotal" value="10">
+      <input type="number" id="zeTotal" placeholder="e.g. 10">
     </div>
     <div>
       <label>Unknown Errors</label>
-      <input type="number" id="zeUnknown" value="0">
+      <input type="number" id="zeUnknown" placeholder="e.g. 0">
     </div>
   </div>
 
@@ -198,27 +198,9 @@ function removeAutomation(id){
   document.getElementById('auto_' + id).remove();
 }
 
-// seed with the usual four
+// starts fresh each day \u2014 only the date defaults to today
 window.onload = () => {
   document.getElementById('reportDate').valueAsDate = new Date();
-  const seed = [
-    {title:"Same Day Confirmation", issue:"Loop / no appointment booked", clients:"Joli, FIL, Minnesota, Premier, Meital, Solei", status:"NO ACTION", am:false, pod:false},
-    {title:"Incoming Leads \u2013 Native", issue:"International message not handled", clients:"Well Era", status:"NO ACTION", am:false, pod:false},
-    {title:"Incoming Booked Lead", issue:"Invalid / missing email address", clients:"Dermalogy, Forest Hill", status:"FIXED", am:true, pod:true},
-    {title:"Global Zap \u2013 Subscribe CAPI Event", issue:"Missing contact ID", clients:"", status:"FIXED", am:false, pod:false},
-  ];
-  seed.forEach(s => {
-    addAutomation();
-    const id = automationCount;
-    document.getElementById(`auto_${id}_title`).value = s.title;
-    document.getElementById(`auto_${id}_issue`).value = s.issue;
-    document.getElementById(`auto_${id}_clients`).value = s.clients;
-    document.getElementById(`auto_${id}_status`).value = s.status;
-    toggleAmCaused(id);
-    document.getElementById(`auto_${id}_amcaused`).checked = s.am;
-    togglePod(id);
-    document.getElementById(`auto_${id}_podnotified`).checked = s.pod;
-  });
 };
 
 // ---------------- CANVAS RENDER ----------------
