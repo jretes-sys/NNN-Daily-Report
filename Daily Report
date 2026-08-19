@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Daily Report Builder</title>
+<style>
+  :root{
+    --navy:#0F172A; --navy2:#1F2937;
+    --bg:#F4F6F9; --card:#FFFFFF; --border:#E6E9EE;
+    --ink:#111827; --subink:#64748B;
+    --blue:#2563EB; --blue-bg:#E3ECFD;
+    --green:#16A34A; --green-bg:#E6F7ED;
+    --red:#DC2626;
+    --amber:#D97706; --amber-bg:#FEF3E2;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:20px;
+  }
+  h1{font-size:20px; margin:0 0 4px;}
+  .sub{color:var(--subink); font-size:13px; margin:0 0 20px;}
+  .panel{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:18px; margin-bottom:16px;
+  }
+  .panel h2{
+    font-size:14px; text-transform:uppercase; letter-spacing:.04em;
+    margin:0 0 14px; color:var(--navy); border-left:4px solid var(--blue);
+    padding-left:10px;
+  }
+  .panel.leads h2{border-color:var(--amber);}
+  .panel.errors h2{border-color:var(--red);}
+  label{display:block; font-size:13px; color:var(--subink); margin:10px 0 4px;}
+  input[type=text], input[type=number], input[type=date], select, textarea{
+    width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:8px;
+    font-size:14px; font-family:inherit; background:#FBFCFD;
+  }
+  .row{display:flex; gap:12px;}
+  .row > div{flex:1;}
+  .chk{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px;}
+  .chk input{width:16px; height:16px;}
+  .automation{
+    border:1px solid var(--border); border-radius:10px; padding:14px; margin-top:12px;
+    background:#FAFBFC; position:relative;
+  }
+  .automation .num{
+    position:absolute; top:-10px; left:12px; background:var(--navy); color:white;
+    font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px;
+  }
+  .remove-btn{
+    position:absolute; top:10px; right:10px; background:none; border:none;
+    color:var(--red); font-size:13px; cursor:pointer; font-weight:600;
+  }
+  .add-btn{
+    margin-top:14px; width:100%; padding:10px; border:1.5px dashed #C7CDD6;
+    background:none; border-radius:10px; color:var(--subink); font-size:14px;
+    cursor:pointer; font-weight:600;
+  }
+  .add-btn:hover{border-color:var(--blue); color:var(--blue);}
+  .generate-btn{
+    width:100%; padding:14px; background:var(--navy); color:white; border:none;
+    border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; margin-top:6px;
+  }
+  .generate-btn:active{background:var(--navy2);}
+  #canvasWrap{ text-align:center; margin-top:16px; }
+  canvas{ display:none; }
+  #reportImage{ display:none; max-width:100%; height:auto; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.08); }
+  .copy-hint{ display:none; font-size:13px; color:var(--subink); margin-top:10px; }
+  .download-btn{
+    width:100%; padding:12px; background:var(--green); color:white; border:none;
+    border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; margin-top:10px;
+    display:none;
+  }
+  .conditional{ display:none; }
+</style>
+</head>
+<body>
+
+<h1>Daily Report Builder</h1>
+<p class="sub">Fill in today's numbers, then generate the image to send to WhatsApp.</p>
+
+<div class="panel">
+  <h2>Date</h2>
+  <input type="date" id="reportDate">
+</div>
+
+<div class="panel">
+  <h2>Number Verifier</h2>
+  <div class="row">
+    <div>
+      <label>Total Dialpad Numbers</label>
+      <input type="number" id="nvTotal" value="446">
+    </div>
+    <div>
+      <label>Flagged as Spam</label>
+      <input type="number" id="nvFlagged" value="226">
+    </div>
+  </div>
+  <div class="chk">
+    <input type="checkbox" id="nvDiscord" checked>
+    <label style="margin:0;" for="nvDiscord">Spam numbers posted to Discord</label>
+  </div>
+</div>
+
+<div class="panel leads">
+  <h2>Action Required Leads</h2>
+  <div class="row">
+    <div>
+      <label>Total Leads</label>
+      <input type="number" id="arlTotal" value="3">
+    </div>
+    <div>
+      <label>Campaigns (comma separated)</label>
+      <input type="text" id="arlCampaigns" placeholder="ADVB, NNN, FTB" value="ADVB, NNN">
+    </div>
+  </div>
+</div>
+
+<div class="panel errors">
+  <h2>Zap Errors</h2>
+  <div class="row">
+    <div>
+      <label>Total Errors</label>
+      <input type="number" id="zeTotal" value="10">
+    </div>
+    <div>
+      <label>Unknown Errors</label>
+      <input type="number" id="zeUnknown" value="0">
+    </div>
+  </div>
+
+  <div id="automationsList"></div>
+  <button class="add-btn" onclick="addAutomation()">+ Add automation</button>
+</div>
+
+<button class="generate-btn" onclick="generateReport()">Generate Report Image</button>
+<button class="download-btn" id="openBtn" onclick="openImageNewTab()">Open Full Image in New Tab</button>
+<p class="copy-hint" id="openHint" style="display:none;">This opens the image by itself in a new browser tab. From there, press and hold (mobile) or right-click (desktop) it &rarr; Copy Image or Save Image &rarr; paste/attach in WhatsApp.</p>
+
+<div id="canvasWrap">
+  <canvas id="reportCanvas" width="1080" height="800"></canvas>
+  <img id="reportImage" alt="Daily report">
+</div>
+
+<script>
+let automationCount = 0;
+
+function addAutomation(data){
+  automationCount++;
+  const id = automationCount;
+  const div = document.createElement('div');
+  div.className = 'automation';
+  div.id = 'auto_' + id;
+  div.innerHTML = `
+    <span class="num">#${id}</span>
+    <button class="remove-btn" onclick="removeAutomation(${id})">Remove</button>
+    <label>Automation Name</label>
+    <input type="text" id="auto_${id}_title" placeholder="e.g. Same Day Confirmation">
+    <label>Issue</label>
+    <input type="text" id="auto_${id}_issue" placeholder="e.g. Loop / no appointment booked">
+    <label>Spas/Clients Affected</label>
+    <input type="text" id="auto_${id}_clients" placeholder="e.g. Joli, FIL, Minnesota">
+    <label>Status</label>
+    <select id="auto_${id}_status" onchange="toggleAmCaused(${id})">
+      <option value="NO ACTION">No action needed</option>
+      <option value="FIXED">Fixed</option>
+    </select>
+    <div class="conditional" id="auto_${id}_amwrap">
+      <div class="chk">
+        <input type="checkbox" id="auto_${id}_amcaused" onchange="togglePod(${id})">
+        <label style="margin:0;" for="auto_${id}_amcaused">Caused by an AM</label>
+      </div>
+      <div class="conditional" id="auto_${id}_podwrap">
+        <div class="chk">
+          <input type="checkbox" id="auto_${id}_podnotified">
+          <label style="margin:0;" for="auto_${id}_podnotified">POD manager notified</label>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('automationsList').appendChild(div);
+  toggleAmCaused(id);
+}
+
+function toggleAmCaused(id){
+  const status = document.getElementById(`auto_${id}_status`).value;
+  const wrap = document.getElementById(`auto_${id}_amwrap`);
+  wrap.style.display = status === 'FIXED' ? 'block' : 'none';
+  togglePod(id);
+}
+function togglePod(id){
+  const amChecked = document.getElementById(`auto_${id}_amcaused`).checked;
+  document.getElementById(`auto_${id}_podwrap`).style.display = amChecked ? 'block' : 'none';
+}
+function removeAutomation(id){
+  document.getElementById('auto_' + id).remove();
+}
+
+// seed with the usual four
+window.onload = () => {
+  document.getElementById('reportDate').valueAsDate = new Date();
+  const seed = [
+    {title:"Same Day Confirmation", issue:"Loop / no appointment booked", clients:"Joli, FIL, Minnesota, Premier, Meital, Solei", status:"NO ACTION", am:false, pod:false},
+    {title:"Incoming Leads \u2013 Native", issue:"International message not handled", clients:"Well Era", status:"NO ACTION", am:false, pod:false},
+    {title:"Incoming Booked Lead", issue:"Invalid / missing email address", clients:"Dermalogy, Forest Hill", status:"FIXED", am:true, pod:true},
+    {title:"Global Zap \u2013 Subscribe CAPI Event", issue:"Missing contact ID", clients:"", status:"FIXED", am:false, pod:false},
+  ];
+  seed.forEach(s => {
+    addAutomation();
+    const id = automationCount;
+    document.getElementById(`auto_${id}_title`).value = s.title;
+    document.getElementById(`auto_${id}_issue`).value = s.issue;
+    document.getElementById(`auto_${id}_clients`).value = s.clients;
+    document.getElementById(`auto_${id}_status`).value = s.status;
+    toggleAmCaused(id);
+    document.getElementById(`auto_${id}_amcaused`).checked = s.am;
+    togglePod(id);
+    document.getElementById(`auto_${id}_podnotified`).checked = s.pod;
+  });
+};
+
+// ---------------- CANVAS RENDER ----------------
+const COLORS = {
+  bg:'#F4F6F9', card:'#FFFFFF', border:'#E6E9EE',
+  ink:'#111827', subink:'#64748B', navy:'#0F172A',
+  green:'#16A34A', greenBg:'#E6F7ED',
+  red:'#DC2626', blue:'#2563EB', blueBg:'#E3ECFD',
+  amber:'#D97706', divider:'#EBEDF1'
+};
+const W = 1080;
+const MARGIN = 56;
+const PAD = 34;
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function wrapText(ctx, text, maxWidth){
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for(const w of words){
+    const trial = (cur + ' ' + w).trim();
+    if(ctx.measureText(trial).width <= maxWidth){ cur = trial; }
+    else{ if(cur) lines.push(cur); cur = w; }
+  }
+  if(cur) lines.push(cur);
+  return lines;
+}
+function badge(ctx, x, y, text, fg, bg, fontSize=19){
+  ctx.font = `700 ${fontSize}px -apple-system, Arial, sans-serif`;
+  const w = ctx.measureText(text).width;
+  const padX = 14, padY = 7;
+  const h = fontSize + padY*2 - 4;
+  roundRect(ctx, x, y, w+padX*2, h, h/2);
+  ctx.fillStyle = bg; ctx.fill();
+  ctx.fillStyle = fg;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x+padX, y+h/2+1);
+  ctx.textBaseline = 'alphabetic';
+  return w + padX*2;
+}
+function tagChip(ctx, x, y, text){
+  ctx.font = `400 21px -apple-system, Arial, sans-serif`;
+  const w = ctx.measureText(text).width;
+  const h = 21+14;
+  roundRect(ctx, x, y, w+20, h, h/2);
+  ctx.fillStyle = '#F1F3F7'; ctx.fill();
+  ctx.fillStyle = COLORS.subink;
+  ctx.textBaseline='middle';
+  ctx.fillText(text, x+10, y+h/2+1);
+  ctx.textBaseline='alphabetic';
+  return w+20;
+}
+function checkCircle(ctx, cx, cy, r, color){
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+  ctx.strokeStyle='white'; ctx.lineWidth=4; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.beginPath();
+  ctx.moveTo(cx-r*0.45, cy);
+  ctx.lineTo(cx-r*0.1, cy+r*0.4);
+  ctx.lineTo(cx+r*0.5, cy-r*0.35);
+  ctx.stroke();
+}
+
+function collectData(){
+  const dateVal = document.getElementById('reportDate').value;
+  let dateStr = dateVal;
+  if(dateVal){
+    const [y,m,d] = dateVal.split('-');
+    dateStr = `${m}/${d}/${y}`;
+  }
+  const automations = [];
+  document.querySelectorAll('.automation').forEach(div => {
+    const id = div.id.split('_')[1];
+    const title = document.getElementById(`auto_${id}_title`).value.trim();
+    if(!title) return;
+    automations.push({
+      title,
+      issue: document.getElementById(`auto_${id}_issue`).value.trim(),
+      clients: document.getElementById(`auto_${id}_clients`).value.trim(),
+      status: document.getElementById(`auto_${id}_status`).value,
+      amCaused: document.getElementById(`auto_${id}_amcaused`).checked,
+      podNotified: document.getElementById(`auto_${id}_podnotified`).checked,
+    });
+  });
+  return {
+    date: dateStr || '--/--/----',
+    nvTotal: parseInt(document.getElementById('nvTotal').value)||0,
+    nvFlagged: parseInt(document.getElementById('nvFlagged').value)||0,
+    nvDiscord: document.getElementById('nvDiscord').checked,
+    arlTotal: parseInt(document.getElementById('arlTotal').value)||0,
+    arlCampaigns: document.getElementById('arlCampaigns').value.split(',').map(s=>s.trim()).filter(Boolean),
+    zeTotal: parseInt(document.getElementById('zeTotal').value)||0,
+    zeUnknown: parseInt(document.getElementById('zeUnknown').value)||0,
+    automations
+  };
+}
+
+function generateReport(){
+  const data = collectData();
+  const canvas = document.getElementById('reportCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // First pass: measure zap errors section height
+  ctx.font = `400 25px -apple-system, Arial, sans-serif`;
+  const contentW = (W - MARGIN*2) - PAD*2 - 90;
+  let rowBoxes = [];
+  let runningY = 0;
+  const rowGap = 18;
+  data.automations.forEach(e => {
+    ctx.font = `400 25px -apple-system, Arial, sans-serif`;
+    const issueLines = wrapText(ctx, e.issue, contentW);
+    ctx.font = `400 21px -apple-system, Arial, sans-serif`;
+    const clientLines = e.clients ? wrapText(ctx, e.clients, contentW) : [];
+    let note = '';
+    if(e.status === 'FIXED' && e.amCaused){
+      note = e.podNotified ? 'POD manager alerted to prevent recurrence' : 'POD manager NOT yet notified';
+    }
+    const noteLines = note ? wrapText(ctx, note, contentW) : [];
+    let rh = 40 + issueLines.length*32;
+    rh += clientLines.length ? clientLines.length*26+6 : 0;
+    rh += noteLines.length ? noteLines.length*26+8 : 0;
+    rh += 18;
+    rowBoxes.push(rh);
+    runningY += rh + rowGap;
+  });
+
+  const CARD_W = W - MARGIN*2;
+  const sec1H = 340, sec2H = 176;
+  const sec3TopPad = 90;
+  const sec3H = data.automations.length ? (sec3TopPad + runningY - rowGap + 30) : (sec3TopPad + 40);
+  const headerH = 150;
+  const footH = 130;
+  const totalH = headerH + 40 + sec1H + 28 + sec2H + 28 + sec3H + 28 + footH + 30;
+
+  canvas.width = W;
+  canvas.height = totalH;
+
+  // background
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0,0,W,totalH);
+
+  let y = 0;
+  // header
+  ctx.fillStyle = COLORS.navy;
+  ctx.fillRect(0,0,W,headerH);
+  ctx.fillStyle = 'white';
+  ctx.font = `700 44px -apple-system, Arial, sans-serif`;
+  ctx.fillText('DAILY REPORT', MARGIN, 56+44*0.75);
+  ctx.font = `400 26px -apple-system, Arial, sans-serif`;
+  const dw = ctx.measureText(data.date).width;
+  roundRect(ctx, W-MARGIN-dw-40, 52, dw+40, 46, 23);
+  ctx.fillStyle = '#1F2937'; ctx.fill();
+  ctx.fillStyle = 'white';
+  ctx.fillText(data.date, W-MARGIN-dw-20, 63+20);
+  y = headerH + 40;
+
+  // ---- Number Verifier ----
+  const total = data.nvTotal, flagged = data.nvFlagged, clean = total-flagged;
+  const pct = total ? Math.round((flagged/total)*100) : 0;
+
+  roundRect(ctx, MARGIN, y, CARD_W, sec1H, 18);
+  ctx.fillStyle = COLORS.card; ctx.fill();
+  ctx.strokeStyle = COLORS.border; ctx.lineWidth=1; ctx.stroke();
+  ctx.fillStyle = COLORS.blue;
+  ctx.fillRect(MARGIN, y, 6, sec1H);
+  ctx.fillStyle = COLORS.ink;
+  ctx.font = `700 28px -apple-system, Arial, sans-serif`;
+  ctx.fillText('NUMBER VERIFIER', MARGIN+PAD, y+26+28*0.75);
+
+  const statY = y+82;
+  const colW = (CARD_W - PAD*2)/3;
+  const stats = [[String(total),'Total Dialpad Numbers'],[String(flagged),'Flagged as Spam'],[pct+'%','Spam Rate']];
+  stats.forEach((s,i) => {
+    const cx = MARGIN+PAD+colW*i+colW/2;
+    ctx.font = `700 46px -apple-system, Arial, sans-serif`;
+    let w = ctx.measureText(s[0]).width;
+    ctx.fillStyle = COLORS.ink;
+    ctx.fillText(s[0], cx-w/2, statY+46*0.75);
+    ctx.font = `400 22px -apple-system, Arial, sans-serif`;
+    w = ctx.measureText(s[1]).width;
+    ctx.fillStyle = COLORS.subink;
+    ctx.fillText(s[1], cx-w/2, statY+58+22*0.75);
+    if(i<2){
+      const lx = MARGIN+PAD+colW*(i+1);
+      ctx.strokeStyle = COLORS.divider; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(lx,statY+5); ctx.lineTo(lx,statY+95); ctx.stroke();
+    }
+  });
+
+  const barY = statY+130, barX0 = MARGIN+PAD, barX1 = MARGIN+CARD_W-PAD, barW = barX1-barX0, barH=26;
+  roundRect(ctx, barX0, barY, barW, barH, barH/2);
+  ctx.save(); ctx.clip();
+  const frac = total ? clean/total : 0;
+  ctx.fillStyle = COLORS.blue;
+  ctx.fillRect(barX0, barY, barW*frac, barH);
+  ctx.fillStyle = COLORS.red;
+  ctx.fillRect(barX0+barW*frac, barY, barW*(1-frac), barH);
+  ctx.restore();
+
+  const legY = barY+barH+20;
+  ctx.beginPath(); ctx.arc(barX0+8, legY+12, 8, 0, Math.PI*2); ctx.fillStyle=COLORS.blue; ctx.fill();
+  ctx.font = `400 21px -apple-system, Arial, sans-serif`;
+  ctx.fillStyle = COLORS.ink;
+  ctx.fillText(`Clean \u2014 ${clean}`, barX0+26, legY+12+7);
+  const cleanLblW = ctx.measureText(`Clean \u2014 ${clean}`).width;
+  const leg2X = barX0+26+cleanLblW+40;
+  ctx.beginPath(); ctx.arc(leg2X+8, legY+12, 8, 0, Math.PI*2); ctx.fillStyle=COLORS.red; ctx.fill();
+  ctx.fillStyle = COLORS.ink;
+  ctx.fillText(`Spam \u2014 ${flagged}`, leg2X+26, legY+12+7);
+
+  if(data.nvDiscord){
+    const footY = y+sec1H-54;
+    checkCircle(ctx, MARGIN+PAD+12, footY+12, 12, COLORS.green);
+    ctx.font = `400 25px -apple-system, Arial, sans-serif`;
+    ctx.fillStyle = COLORS.ink;
+    ctx.fillText('Spam numbers posted to Discord', MARGIN+PAD+34, footY+1+18);
+  }
+  y += sec1H+28;
+
+  // ---- Action Required Leads ----
+  roundRect(ctx, MARGIN, y, CARD_W, sec2H, 18);
+  ctx.fillStyle = COLORS.card; ctx.fill();
+  ctx.strokeStyle = COLORS.border; ctx.stroke();
+  ctx.fillStyle = COLORS.amber;
+  ctx.fillRect(MARGIN, y, 6, sec2H);
+  ctx.fillStyle = COLORS.ink;
+  ctx.font = `700 28px -apple-system, Arial, sans-serif`;
+  ctx.fillText('ACTION REQUIRED LEADS', MARGIN+PAD, y+26+21);
+
+  const leadS = `${data.arlTotal} leads in funnel`;
+  ctx.font = `700 25px -apple-system, Arial, sans-serif`;
+  ctx.fillStyle = COLORS.ink;
+  ctx.fillText(leadS, MARGIN+PAD, y+78+18);
+  let tx = MARGIN+PAD+ctx.measureText(leadS+'   ').width+6;
+  data.arlCampaigns.forEach(tag => {
+    const w = tagChip(ctx, tx, y+74, tag);
+    tx += w+10;
+  });
+  checkCircle(ctx, MARGIN+PAD+12, y+128, 12, COLORS.green);
+  ctx.font = `400 25px -apple-system, Arial, sans-serif`;
+  ctx.fillStyle = COLORS.ink;
+  ctx.fillText('Cleared', MARGIN+PAD+34, y+117+18);
+  y += sec2H+28;
+
+  // ---- Zap Errors ----
+  roundRect(ctx, MARGIN, y, CARD_W, sec3H, 18);
+  ctx.fillStyle = COLORS.card; ctx.fill();
+  ctx.strokeStyle = COLORS.border; ctx.stroke();
+  ctx.fillStyle = COLORS.red;
+  ctx.fillRect(MARGIN, y, 6, sec3H);
+  ctx.fillStyle = COLORS.ink;
+  ctx.font = `700 28px -apple-system, Arial, sans-serif`;
+  ctx.fillText('ZAP ERRORS', MARGIN+PAD, y+26+21);
+  const countS = `${data.zeTotal} total`;
+  ctx.font = `400 25px -apple-system, Arial, sans-serif`;
+  const cw = ctx.measureText(countS).width;
+  roundRect(ctx, MARGIN+CARD_W-PAD-cw-28, y+24, cw+28, 36, 18);
+  ctx.fillStyle = '#F1F3F7'; ctx.fill();
+  ctx.fillStyle = COLORS.subink;
+  ctx.fillText(countS, MARGIN+CARD_W-PAD-cw-14, y+32+18);
+
+  let ry = y+sec3TopPad;
+  data.automations.forEach((e, idx) => {
+    const rh = rowBoxes[idx];
+    const circR = 15, circCx = MARGIN+PAD+circR, circCy = ry+circR+2;
+    ctx.beginPath(); ctx.arc(circCx, circCy, circR, 0, Math.PI*2);
+    ctx.strokeStyle = COLORS.subink; ctx.lineWidth=2; ctx.stroke();
+    ctx.font = `700 21px -apple-system, Arial, sans-serif`;
+    const numS = String(idx+1);
+    const numW = ctx.measureText(numS).width;
+    ctx.fillStyle = COLORS.subink;
+    ctx.fillText(numS, circCx-numW/2, circCy+7);
+
+    const tx0 = MARGIN+PAD+46;
+    ctx.font = `700 25px -apple-system, Arial, sans-serif`;
+    ctx.fillStyle = COLORS.ink;
+    ctx.fillText(e.title, tx0, ry+18);
+
+    const isFixed = e.status === 'FIXED';
+    const sFg = isFixed ? COLORS.green : COLORS.blue;
+    const sBg = isFixed ? COLORS.greenBg : COLORS.blueBg;
+    ctx.font = `700 19px -apple-system, Arial, sans-serif`;
+    const sw = ctx.measureText(e.status).width;
+    badge(ctx, MARGIN+CARD_W-PAD-sw-28, ry-6, e.status, sFg, sBg);
+
+    let iy = ry+38;
+    ctx.font = `400 25px -apple-system, Arial, sans-serif`;
+    ctx.fillStyle = COLORS.subink;
+    wrapText(ctx, e.issue, contentW).forEach(line => {
+      ctx.fillText(line, tx0, iy+18); iy += 32;
+    });
+
+    if(e.clients){
+      iy += 4;
+      ctx.font = `400 21px -apple-system, Arial, sans-serif`;
+      ctx.fillStyle = '#8C94A3';
+      wrapText(ctx, e.clients, contentW).forEach(line => {
+        ctx.fillText(line, tx0, iy+16); iy += 26;
+      });
+    }
+
+    let note = '';
+    if(e.status === 'FIXED' && e.amCaused){
+      note = e.podNotified ? 'POD manager alerted to prevent recurrence' : 'POD manager NOT yet notified';
+    }
+    if(note){
+      iy += 8;
+      ctx.font = `400 21px -apple-system, Arial, sans-serif`;
+      ctx.fillStyle = e.podNotified ? COLORS.green : COLORS.amber;
+      wrapText(ctx, note, contentW).forEach(line => {
+        ctx.fillText(line, tx0, iy+16); iy += 26;
+      });
+    }
+
+    if(idx < data.automations.length-1){
+      ctx.strokeStyle = COLORS.divider; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(MARGIN+PAD, ry+rh); ctx.lineTo(MARGIN+CARD_W-PAD, ry+rh); ctx.stroke();
+    }
+    ry += rh+rowGap;
+  });
+  y += sec3H+28;
+
+  // ---- Footer ----
+  roundRect(ctx, MARGIN, y, CARD_W, footH, 18);
+  ctx.fillStyle = COLORS.navy; ctx.fill();
+  const unknown = data.zeUnknown;
+  if(unknown === 0){
+    checkCircle(ctx, MARGIN+PAD+20, y+footH/2, 22, COLORS.green);
+  } else {
+    ctx.beginPath(); ctx.arc(MARGIN+PAD+22, y+footH/2, 22, 0, Math.PI*2);
+    ctx.fillStyle = COLORS.red; ctx.fill();
+    ctx.font = `700 40px -apple-system, Arial, sans-serif`;
+    ctx.fillStyle = 'white';
+    const exW = ctx.measureText('!').width;
+    ctx.fillText('!', MARGIN+PAD+22-exW/2, y+footH/2+14);
+  }
+  ctx.font = `400 25px -apple-system, Arial, sans-serif`;
+  ctx.fillStyle = '#AAB3C4';
+  ctx.fillText('Unknown Errors', MARGIN+PAD+60, y+28+18);
+  ctx.font = `700 40px -apple-system, Arial, sans-serif`;
+  ctx.fillStyle = 'white';
+  ctx.fillText(String(unknown), MARGIN+PAD+60, y+58+32);
+
+  const statusS = unknown === 0 ? 'ALL SYSTEMS REVIEWED' : 'NEEDS INVESTIGATION';
+  ctx.font = `700 25px -apple-system, Arial, sans-serif`;
+  const statusW = ctx.measureText(statusS).width;
+  ctx.fillStyle = unknown === 0 ? '#96DCB4' : '#FAB4B4';
+  ctx.fillText(statusS, MARGIN+CARD_W-PAD-statusW, y+footH/2+9);
+
+  const dataUrl = canvas.toDataURL('image/png');
+  const imgEl = document.getElementById('reportImage');
+  imgEl.src = dataUrl;
+  imgEl.style.display = 'block';
+  document.getElementById('openBtn').style.display = 'block';
+  document.getElementById('openHint').style.display = 'block';
+  document.getElementById('canvasWrap').scrollIntoView({behavior:'smooth'});
+}
+
+function openImageNewTab(){
+  const canvas = document.getElementById('reportCanvas');
+  canvas.toBlob((blob) => {
+    if(!blob) return;
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  }, 'image/png');
+}
+</script>
+</body>
+</html>
